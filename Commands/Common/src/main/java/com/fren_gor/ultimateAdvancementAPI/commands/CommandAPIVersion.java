@@ -71,6 +71,16 @@ public enum CommandAPIVersion {
                     "v1_21_R7",
                     "v26_1_R2"
             )
+    ),
+    v12_0_0("12.0.0",
+            "commandapi-spigot-shade",
+            "commandapi-paper-shade",
+            "WYJSdZPnABtIb7Jn27wwE58LTjhXh757I+ZIbGPp1q0=",
+            "rQLFFwTKL1NbLKw93E4y83Qsg3FMUDIYHLD1BN/NZ20=",
+            "12_0_0",
+            List.of(
+                    "v26_2_R1"
+            )
     );
 
     private final String version, suffix;

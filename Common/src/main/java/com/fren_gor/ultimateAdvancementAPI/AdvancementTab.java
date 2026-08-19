@@ -503,8 +503,11 @@ public final class AdvancementTab {
         checkInitialisation();
         Preconditions.checkNotNull(player, "Player is null.");
         if (!players.containsKey(player)) {
-            players.put(player, Collections.emptySet());
+            // Update the advancements first: if the player's data is not loaded yet and updateAdvancementsToTeam
+            // throws UserNotLoadedException, the player must NOT be marked as shown, otherwise the tab would never
+            // be sent to them (until they earn a new advancement which triggers another update).
             updateAdvancementsToTeam(player);
+            players.put(player, Collections.emptySet());
         }
     }
 

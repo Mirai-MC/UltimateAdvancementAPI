@@ -212,7 +212,7 @@ public class AdvancementDisplay {
         Preconditions.checkArgument(Float.isFinite(x), "x is NaN or infinite.");
         Preconditions.checkArgument(Float.isFinite(y), "y is NaN or infinite.");
         Preconditions.checkArgument(x >= 0, "x is not zero or positive.");
-        // Negative y is permitted: a node with negative y renders above its parent (vanilla layout convention).
+        Preconditions.checkArgument(y >= 0, "y is not zero or positive.");
 
         this.icon = icon.clone();
         this.title = title;
