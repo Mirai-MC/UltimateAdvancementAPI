@@ -20,6 +20,7 @@ import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.packets.ISendable;
 import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.packets.PacketPlayOutAdvancementsWrapper;
 import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.packets.PacketPlayOutSelectAdvancementTabWrapper;
 import com.fren_gor.ultimateAdvancementAPI.util.AdvancementKey;
+import com.fren_gor.ultimateAdvancementAPI.util.AdvancementLayout;
 import com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils;
 import com.fren_gor.ultimateAdvancementAPI.util.FoliaCompatibility;
 import com.fren_gor.ultimateAdvancementAPI.util.LazyValue;
@@ -47,11 +48,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.fren_gor.ultimateAdvancementAPI.util.AdvancementKey.checkNamespace;
 import static com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils.validateTeamProgression;
@@ -69,7 +70,9 @@ public final class AdvancementTab {
     private final String namespace;
     private final DatabaseManager databaseManager;
     private final Map<AdvancementKey, Advancement> advancements = new HashMap<>();
-    private final Map<Player, Set<MinecraftKeyWrapper>> players = new HashMap<>();
+    // Player callbacks may run on different region threads under Folia.
+    private final Map<Player, Set<MinecraftKeyWrapper>> players = new ConcurrentHashMap<>();
+    private volatile long clientGeneration;
     private final AdvsUpdateRunnable updateManager;
 
     private RootAdvancement rootAdvancement;
@@ -377,6 +380,18 @@ public final class AdvancementTab {
     }
 
     /**
+     * Registers the advancements for this tab, optionally applying the vanilla tidy-tree layout first.
+     *
+     * @param rootAdvancement The root of this tab.
+     * @param autoLayout Whether to calculate positions using the vanilla layout algorithm.
+     * @param advancements The advancements of this tab.
+     */
+    public void registerAdvancements(@NotNull RootAdvancement rootAdvancement, boolean autoLayout,
+                                     @NotNull BaseAdvancement... advancements) {
+        registerAdvancements(rootAdvancement, Sets.newHashSet(advancements), autoLayout);
+    }
+
+    /**
      * Register the advancements for this tab, initializing the tab. Thus, it cannot be called twice.
      *
      * @param rootAdvancement The root of this tab.
@@ -385,6 +400,19 @@ public final class AdvancementTab {
      * @throws DisposedException If the tab is disposed.
      */
     public void registerAdvancements(@NotNull RootAdvancement rootAdvancement, @NotNull Set<BaseAdvancement> advancements) {
+        registerAdvancements(rootAdvancement, advancements, false);
+    }
+
+    /**
+     * Registers the advancements for this tab, optionally applying the vanilla tidy-tree layout first.
+     *
+     * @param rootAdvancement The root of this tab.
+     * @param advancements The advancements of this tab.
+     * @param autoLayout Whether to calculate positions using the vanilla layout algorithm.
+     */
+    public void registerAdvancements(@NotNull RootAdvancement rootAdvancement,
+                                     @NotNull Set<BaseAdvancement> advancements,
+                                     boolean autoLayout) {
         if (disposed) {
             throw new DisposedException("AdvancementTab is disposed.");
         }
@@ -400,6 +428,10 @@ public final class AdvancementTab {
             if (!isOwnedByThisTab(a)) {
                 throw new IllegalArgumentException("Advancement " + a.getKey().toString() + " is not owned by this tab.");
             }
+        }
+
+        if (autoLayout) {
+            AdvancementLayout.applyVanilla(rootAdvancement, advancements);
         }
 
         // Just to be sure
@@ -550,24 +582,31 @@ public final class AdvancementTab {
     private void removePlayer(@NotNull Player player, Set<MinecraftKeyWrapper> keys) {
         if (keys == null || keys.isEmpty())
             return;
-        try {
-            PacketPlayOutAdvancementsWrapper.craftRemovePacket(keys).sendTo(player);
-        } catch (ReflectiveOperationException e) {
-            e.printStackTrace();
-        }
+        FoliaCompatibility.runForPlayer(owningPlugin, player, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            try {
+                PacketPlayOutAdvancementsWrapper.craftRemovePacket(keys).sendTo(player);
+            } catch (ReflectiveOperationException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     void dispose() {
+        dispose(true);
+    }
+
+    void dispose(boolean removeClient) {
         checkInitialisation();
         disposed = true;
         eventManager.disable();
         updateManager.dispose();
-        var it = players.entrySet().iterator();
-        while (it.hasNext()) {
-            Entry<Player, Set<MinecraftKeyWrapper>> e = it.next();
-            removePlayer(e.getKey(), e.getValue());
-            it.remove();
+        if (removeClient) {
+            players.forEach(this::removePlayer);
         }
+        players.clear();
         PluginManager pluginManager = Bukkit.getPluginManager();
         for (Advancement a : advancements.values()) {
             try {
@@ -609,6 +648,15 @@ public final class AdvancementTab {
     public boolean isShownTo(Player player) {
         checkInitialisation();
         return players.containsKey(player);
+    }
+
+    /**
+     * Marks the client-side advancement tree as reset while keeping the tab shown state.
+     * Used after a server datapack reload, which clears the client's tree before UAAPI resends it.
+     */
+    void markClientAdvancementsReset() {
+        clientGeneration++;
+        players.replaceAll((player, ignored) -> Collections.emptySet());
     }
 
     /**
@@ -828,28 +876,40 @@ public final class AdvancementTab {
         private FoliaCompatibility.Task task;
 
         public void schedule(@NotNull TeamProgression progression) {
-            if (!scheduled) {
-                scheduled = true;
-                task = FoliaCompatibility.runSyncLater(owningPlugin, this, 1L);
+            synchronized (this) {
+                advsToUpdate.add(progression);
+                if (!scheduled) {
+                    scheduled = true;
+                    task = FoliaCompatibility.runSyncLater(owningPlugin, this, 1L);
+                }
             }
-            advsToUpdate.add(progression);
         }
 
         public void dispose() {
-            if (task != null) {
-                task.cancel();
+            synchronized (this) {
+                if (task != null) {
+                    task.cancel();
+                }
                 advsToUpdate.clear();
                 scheduled = false;
+                task = null;
             }
         }
 
         @Override
         public void run() {
+            Set<TeamProgression> pending;
+            synchronized (this) {
+                pending = new HashSet<>(advsToUpdate);
+                advsToUpdate.clear();
+                task = null;
+                scheduled = false;
+            }
             // Keep additional space for advancements that might be added by Advancement#onUpdate
             final int best = advancements.size() + 16;
             final Map<AdvancementWrapper, Integer> advs = Maps.newHashMapWithExpectedSize(best);
 
-            for (TeamProgression pro : advsToUpdate) {
+            for (TeamProgression pro : pending) {
                 for (Advancement advancement : advancements.values()) {
                     advancement.onUpdate(pro, advs);
                 }
@@ -858,6 +918,7 @@ public final class AdvancementTab {
                 for (AdvancementWrapper wrapper : advs.keySet()) {
                     keys.add(wrapper.getKey());
                 }
+                final Set<MinecraftKeyWrapper> immutableKeys = Set.copyOf(keys);
 
                 ISendable sendPacket, noTab, thisTab;
                 try {
@@ -872,30 +933,33 @@ public final class AdvancementTab {
                 pro.forEachMember(u -> {
                     Player player = Bukkit.getPlayer(u);
                     if (player != null) {
-                        noTab.sendTo(player);
-
-                        @Nullable Set<MinecraftKeyWrapper> set = players.put(player, keys);
-                        if (set != null && !set.isEmpty()) {
-                            try {
-                                PacketPlayOutAdvancementsWrapper.craftRemovePacket(set).sendTo(player);
-                            } catch (ReflectiveOperationException e) {
-                                e.printStackTrace();
-                                players.put(player, set);
-                                thisTab.sendTo(player);
-                                return; // TODO Check
+                        final long generation = clientGeneration;
+                        FoliaCompatibility.runForPlayer(owningPlugin, player, () -> {
+                            if (disposed || !player.isOnline()) {
+                                return;
                             }
-                        }
-
-                        sendPacket.sendTo(player);
-                        thisTab.sendTo(player);
+                            noTab.sendTo(player);
+                            @Nullable Set<MinecraftKeyWrapper> previous = players.put(player, immutableKeys);
+                            // A datapack reload clears the client tree. Do not send stale remove packets
+                            // after that reset, otherwise the client logs "don't know what that is".
+                            if (generation == clientGeneration && previous != null && !previous.isEmpty()) {
+                                try {
+                                    PacketPlayOutAdvancementsWrapper.craftRemovePacket(previous).sendTo(player);
+                                } catch (ReflectiveOperationException e) {
+                                    e.printStackTrace();
+                                    players.put(player, previous);
+                                    thisTab.sendTo(player);
+                                    return;
+                                }
+                            }
+                            sendPacket.sendTo(player);
+                            thisTab.sendTo(player);
+                        });
                     }
                 });
 
                 advs.clear();
             }
-            task = null;
-            advsToUpdate.clear();
-            scheduled = false;
         }
     }
 }

@@ -26,20 +26,16 @@ public class PacketPlayOutAdvancementsWrapper_v1_21_R5 extends PacketPlayOutAdva
     public PacketPlayOutAdvancementsWrapper_v1_21_R5() {
         this.packet = new ClientboundUpdateAdvancementsPacket(true, Collections.emptyList(), Collections.emptySet(), Collections.emptyMap(), true);
     }
-
-    @SuppressWarnings("unchecked")
     public PacketPlayOutAdvancementsWrapper_v1_21_R5(@NotNull Map<AdvancementWrapper, Integer> toSend) {
         Map<ResourceLocation, AdvancementProgress> map = Maps.newHashMapWithExpectedSize(toSend.size());
         for (Entry<AdvancementWrapper, Integer> e : toSend.entrySet()) {
             AdvancementWrapper adv = e.getKey();
             map.put((ResourceLocation) adv.getKey().toNMS(), Util.getAdvancementProgress((AdvancementHolder) adv.toNMS(), e.getValue()));
         }
-        this.packet = new ClientboundUpdateAdvancementsPacket(false, (Collection<AdvancementHolder>) ListSet.fromWrapperSet(toSend.keySet()), Collections.emptySet(), map, true);
+        this.packet = new ClientboundUpdateAdvancementsPacket(false, ListSet.fromWrapperSet(toSend.keySet()), Collections.emptySet(), map, true);
     }
-
-    @SuppressWarnings("unchecked")
     public PacketPlayOutAdvancementsWrapper_v1_21_R5(@NotNull Set<MinecraftKeyWrapper> toRemove) {
-        this.packet = new ClientboundUpdateAdvancementsPacket(false, Collections.emptyList(), (Set<ResourceLocation>) ListSet.fromWrapperSet(toRemove), Collections.emptyMap(), true);
+        this.packet = new ClientboundUpdateAdvancementsPacket(false, Collections.emptyList(), ListSet.fromWrapperSet(toRemove), Collections.emptyMap(), true);
     }
 
     @Override

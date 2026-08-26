@@ -26,20 +26,16 @@ public class PacketPlayOutAdvancementsWrapper_v1_16_R3 extends PacketPlayOutAdva
     public PacketPlayOutAdvancementsWrapper_v1_16_R3() {
         this.packet = new PacketPlayOutAdvancements(true, Collections.emptyList(), Collections.emptySet(), Collections.emptyMap());
     }
-
-    @SuppressWarnings("unchecked")
     public PacketPlayOutAdvancementsWrapper_v1_16_R3(@NotNull Map<AdvancementWrapper, Integer> toSend) {
         Map<MinecraftKey, AdvancementProgress> map = Maps.newHashMapWithExpectedSize(toSend.size());
         for (Entry<AdvancementWrapper, Integer> e : toSend.entrySet()) {
             AdvancementWrapper adv = e.getKey();
             map.put((MinecraftKey) adv.getKey().toNMS(), Util.getAdvancementProgress((Advancement) adv.toNMS(), e.getValue()));
         }
-        this.packet = new PacketPlayOutAdvancements(false, (Collection<Advancement>) ListSet.fromWrapperSet(toSend.keySet()), Collections.emptySet(), map);
+        this.packet = new PacketPlayOutAdvancements(false, ListSet.fromWrapperSet(toSend.keySet()), Collections.emptySet(), map);
     }
-
-    @SuppressWarnings("unchecked")
     public PacketPlayOutAdvancementsWrapper_v1_16_R3(@NotNull Set<MinecraftKeyWrapper> toRemove) {
-        this.packet = new PacketPlayOutAdvancements(false, Collections.emptyList(), (Set<MinecraftKey>) ListSet.fromWrapperSet(toRemove), Collections.emptyMap());
+        this.packet = new PacketPlayOutAdvancements(false, Collections.emptyList(), ListSet.fromWrapperSet(toRemove), Collections.emptyMap());
     }
 
     @Override

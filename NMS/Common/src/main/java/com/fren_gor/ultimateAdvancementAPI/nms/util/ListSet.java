@@ -4,17 +4,17 @@ import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.AbstractWrapper;
 import com.google.common.base.Preconditions;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Range;
 
 import java.util.AbstractSet;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Immutable copy of the non-null elements of a Set.
- * <p>The implementation uses an immutable array-based list to store the elements of the original Set
- * in order to minimize the copy operation cost.
+ * <p>The implementation stores an immutable copy of the original Set.
  * <p>Since ListSet is immutable and contains only the elements of one other Set,
  * it respects all the properties of a Set.
  * <p><strong>This class is thread safe.</strong>
@@ -23,8 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class ListSet<E> extends AbstractSet<E> implements Set<E> {
 
-    private final E[] elements;
-    private final int size;
+    private final List<E> elements;
 
     /**
      * Creates a new ListSet containing the elements of the provided Set.
@@ -34,20 +33,17 @@ public final class ListSet<E> extends AbstractSet<E> implements Set<E> {
      */
     public ListSet(@NotNull Set<E> elements) {
         Preconditions.checkNotNull(elements, "Set is null.");
-        @SuppressWarnings("unchecked")
-        E[] array = (E[]) new Object[elements.size()];
-        int i = 0;
+        List<E> values = new ArrayList<>(elements.size());
         for (E e : elements) {
-            if (e != null)
-                array[i++] = e;
+            if (e != null) {
+                values.add(e);
+            }
         }
-        this.elements = array;
-        size = i;
+        this.elements = List.copyOf(values);
     }
 
-    private ListSet(@NotNull E[] elements, @Range(from = 0, to = Integer.MAX_VALUE) int size) {
-        this.elements = elements;
-        this.size = size;
+    private ListSet(@NotNull List<E> elements) {
+        this.elements = List.copyOf(elements);
     }
 
     /**
@@ -61,18 +57,19 @@ public final class ListSet<E> extends AbstractSet<E> implements Set<E> {
      */
     @NotNull
     @Contract(pure = true, value = "_ -> new")
-    public static <T extends AbstractWrapper> ListSet<?> fromWrapperSet(@NotNull Set<T> elements) {
+    @SuppressWarnings("unchecked")
+    public static <R, T extends AbstractWrapper> ListSet<R> fromWrapperSet(@NotNull Set<T> elements) {
         Preconditions.checkNotNull(elements, "Set is null.");
-        Object[] array = new Object[elements.size()];
-        int i = 0;
+        List<R> values = new ArrayList<>(elements.size());
         for (T t : elements) {
             if (t != null) {
                 Object nms = t.toNMS();
-                if (nms != null) // Double check not-nullity
-                    array[i++] = nms;
+                if (nms != null) {
+                    values.add((R) nms);
+                }
             }
         }
-        return new ListSet<>(array, i);
+        return new ListSet<>(values);
     }
 
     /**
@@ -86,14 +83,14 @@ public final class ListSet<E> extends AbstractSet<E> implements Set<E> {
 
             @Override
             public boolean hasNext() {
-                return current.get() < size;
+                return current.get() < elements.size();
             }
 
             @Override
             public E next() {
                 // It is thread-safe to not synchronize accesses to elements array
                 // since it cannot be modified after being populated by the constructor
-                return elements[current.getAndIncrement()];
+                return elements.get(current.getAndIncrement());
             }
         };
     }
@@ -103,6 +100,6 @@ public final class ListSet<E> extends AbstractSet<E> implements Set<E> {
      */
     @Override
     public int size() {
-        return size;
+        return elements.size();
     }
 }

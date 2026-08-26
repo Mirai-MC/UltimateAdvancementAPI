@@ -49,6 +49,19 @@ An example of plugin using UltimateAdvancementAPI can be found [here](https://gi
 
 More examples by the community can be found in the `showcase` forum on [Discord](https://discord.gg/BMg6VJk5n3).
 
+#### Automatic advancement layout
+
+Pass `true` when registering a tab to calculate vanilla-style tree coordinates from each
+advancement's parent relationship:
+
+```java
+tab.registerAdvancements(root, true, advancements);
+// Set overload:
+tab.registerAdvancements(root, advancementsSet, true);
+```
+
+The existing overloads keep the coordinates supplied through `AdvancementDisplay`.
+
 #### Test Plugin:
 
 The plugin used for tests can be found [here](https://github.com/frengor/UltimateAdvancementAPI-Tests).

@@ -138,6 +138,16 @@ public final class UltimateAdvancementAPI {
     }
 
     /**
+     * Unregisters an advancement tab, optionally omitting client remove packets during a rebuild.
+     *
+     * @param namespace tab namespace
+     * @param removeClient whether to send client-side removal packets
+     */
+    public void unregisterAdvancementTab(@NotNull String namespace, boolean removeClient) {
+        getMain().unregisterAdvancementTab(namespace, removeClient);
+    }
+
+    /**
      * Unregisters all the advancement tabs owned by the provided plugin.
      *
      * @throws IllegalStateException If the API is not enabled.
@@ -251,7 +261,7 @@ public final class UltimateAdvancementAPI {
      * @param frame The shape of the toast notification frame.
      */
     public void displayCustomToast(@NotNull Player player, @NotNull ItemStack icon, @NotNull String title, @NotNull AdvancementFrameType frame) {
-        AdvancementUtils.displayToast(player, icon, title, frame);
+        AdvancementUtils.displayToast(plugin, player, icon, title, frame);
     }
 
     /**

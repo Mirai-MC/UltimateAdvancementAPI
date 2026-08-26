@@ -78,12 +78,12 @@ public class AdvancementDisplay {
     /**
      * The advancement x coordinate.
      */
-    protected final float x;
+    protected float x;
 
     /**
      * The advancement y coordinate.
      */
-    protected final float y;
+    protected float y;
 
     /**
      * Creates a new AdvancementDisplay.
@@ -248,6 +248,22 @@ public class AdvancementDisplay {
         this.frame = frame;
         this.showToast = showToast;
         this.announceChat = announceChat;
+        this.x = x;
+        this.y = y;
+    }
+
+    /**
+     * Sets the advancement position. This is intended for layout engines that run before
+     * the advancement is first sent to a client.
+     *
+     * @param x The non-negative x coordinate.
+     * @param y The non-negative y coordinate.
+     */
+    public void setLocation(float x, float y) {
+        Preconditions.checkArgument(Float.isFinite(x), "x is NaN or infinite.");
+        Preconditions.checkArgument(Float.isFinite(y), "y is NaN or infinite.");
+        Preconditions.checkArgument(x >= 0, "x is not zero or positive.");
+        Preconditions.checkArgument(y >= 0, "y is not zero or positive.");
         this.x = x;
         this.y = y;
     }

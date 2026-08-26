@@ -15,6 +15,7 @@ import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.advancement.AdvancementD
 import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.advancement.AdvancementFrameTypeWrapper;
 import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.advancement.AdvancementWrapper;
 import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.packets.PacketPlayOutAdvancementsWrapper;
+import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.packets.ISendable;
 import com.google.common.base.Preconditions;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
@@ -68,6 +69,12 @@ public class AdvancementUtils {
      * @see UltimateAdvancementAPI#displayCustomToast(Player, ItemStack, String, AdvancementFrameType)
      */
     public static void displayToast(@NotNull Player player, @NotNull ItemStack icon, @NotNull String title, @NotNull AdvancementFrameType frame) {
+        displayToast(null, player, icon, title, frame);
+    }
+
+    /** Displays a toast on the player's region when a plugin scheduler is available. */
+    public static void displayToast(@Nullable Plugin plugin, @NotNull Player player, @NotNull ItemStack icon,
+                                    @NotNull String title, @NotNull AdvancementFrameType frame) {
         Preconditions.checkNotNull(player, "Player is null.");
         Preconditions.checkNotNull(icon, "Icon is null.");
         Preconditions.checkNotNull(title, "Title is null.");
@@ -77,11 +84,20 @@ public class AdvancementUtils {
         try {
             AdvancementDisplayWrapper display = AdvancementDisplayWrapper.craft(icon, title, ADV_DESCRIPTION, frame.getNMSWrapper(), 1, 0, true, false, false);
             AdvancementWrapper notification = AdvancementWrapper.craftBaseAdvancement(NOTIFICATION_KEY, ROOT, display, 1);
-            PacketPlayOutAdvancementsWrapper.craftSendPacket(Map.of(
+            ISendable send = PacketPlayOutAdvancementsWrapper.craftSendPacket(Map.of(
                     ROOT, 1,
                     notification, 1
-            )).sendTo(player);
-            PacketPlayOutAdvancementsWrapper.craftRemovePacket(Set.of(ROOT_KEY, NOTIFICATION_KEY)).sendTo(player);
+            ));
+            ISendable remove = PacketPlayOutAdvancementsWrapper.craftRemovePacket(Set.of(ROOT_KEY, NOTIFICATION_KEY));
+            Runnable sendPackets = () -> {
+                send.sendTo(player);
+                remove.sendTo(player);
+            };
+            if (plugin == null) {
+                sendPackets.run();
+            } else {
+                FoliaCompatibility.runForPlayer(plugin, player, sendPackets);
+            }
         } catch (ReflectiveOperationException e) {
             e.printStackTrace();
         }
@@ -125,8 +141,12 @@ public class AdvancementUtils {
                     : AdvancementDisplayWrapper.craft(display.getIcon(), display.getTitle(), ADV_DESCRIPTION, display.getFrame().getNMSWrapper(), 0, 0, true, false, false);
             AdvancementWrapper advWrapper = AdvancementWrapper.craftBaseAdvancement(keyWrapper, advancement.getNMSWrapper(), displayWrapper, 1);
 
-            PacketPlayOutAdvancementsWrapper.craftSendPacket(Map.of(advWrapper, 1)).sendTo(player);
-            PacketPlayOutAdvancementsWrapper.craftRemovePacket(Set.of(keyWrapper)).sendTo(player);
+            ISendable send = PacketPlayOutAdvancementsWrapper.craftSendPacket(Map.of(advWrapper, 1));
+            ISendable remove = PacketPlayOutAdvancementsWrapper.craftRemovePacket(Set.of(keyWrapper));
+            FoliaCompatibility.runForPlayer(advancement.getAdvancementTab().getOwningPlugin(), player, () -> {
+                send.sendTo(player);
+                remove.sendTo(player);
+            });
         } catch (ReflectiveOperationException e) {
             e.printStackTrace();
         }

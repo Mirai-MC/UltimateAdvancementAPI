@@ -12,15 +12,15 @@ import com.fren_gor.ultimateAdvancementAPI.exceptions.DuplicatedException;
 import com.fren_gor.ultimateAdvancementAPI.exceptions.InvalidVersionException;
 import com.fren_gor.ultimateAdvancementAPI.nms.util.ReflectionUtil;
 import com.fren_gor.ultimateAdvancementAPI.util.AdvancementKey;
+import com.fren_gor.ultimateAdvancementAPI.util.FoliaCompatibility;
 import com.fren_gor.ultimateAdvancementAPI.util.Versions;
 import com.google.common.base.Preconditions;
 import net.byteflux.libby.BukkitLibraryManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.server.PluginDisableEvent;
-import org.bukkit.event.server.ServerCommandEvent;
+import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.ApiStatus.Obsolete;
 import org.jetbrains.annotations.Contract;
@@ -46,7 +46,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import static com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils.runSync;
 
 /**
  * Main class of the API. It is used to instantiate the API.
@@ -227,17 +226,42 @@ public final class AdvancementMain {
     private void commonEnablePostDatabase() {
         eventManager.register(this, PluginDisableEvent.class, EventPriority.HIGHEST, e -> unregisterAdvancementTabs(e.getPlugin()));
 
-        // Resend advancements if /minecraft:reload is called
-        eventManager.register(this, ServerCommandEvent.class, e -> {
-            if (isMcReload(e.getCommand()))
-                runSync(this, 20, () -> Bukkit.getOnlinePlayers().forEach(this::updatePlayer));
-        });
-        eventManager.register(this, PlayerCommandPreprocessEvent.class, e -> {
-            if (isMcReload(e.getMessage()))
-                runSync(this, 20, () -> Bukkit.getOnlinePlayers().forEach(this::updatePlayer));
+        eventManager.register(this, ServerLoadEvent.class, e -> {
+            if (e.getType() == ServerLoadEvent.LoadType.RELOAD) {
+                markClientAdvancementsReset();
+                FoliaCompatibility.runSyncLater(owningPlugin, this::resyncAfterMinecraftReload, 1L);
+            }
         });
 
         UltimateAdvancementAPI.main = this;
+    }
+
+    private void resyncAfterMinecraftReload() {
+        markClientAdvancementsReset();
+        // This callback runs on Folia's global region. Queue team updates there, while the
+        // update runnable dispatches the actual packets to each player's entity region.
+        for (AdvancementTab tab : tabs.values()) {
+            if (!tab.isActive()) {
+                continue;
+            }
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (tab.isShownTo(player)) {
+                    try {
+                        tab.updateAdvancementsToTeam(player);
+                    } catch (RuntimeException ignored) {
+                        // A player may finish loading/unload between the snapshot and this callback.
+                    }
+                }
+            }
+        }
+    }
+
+    private void markClientAdvancementsReset() {
+        for (AdvancementTab tab : tabs.values()) {
+            if (tab.isActive()) {
+                tab.markClientAdvancementsReset();
+            }
+        }
     }
 
     @Contract("_ -> fail")
@@ -366,11 +390,20 @@ public final class AdvancementMain {
      * @see UltimateAdvancementAPI#unregisterAdvancementTab(String)
      */
     public void unregisterAdvancementTab(@NotNull String namespace) {
+        unregisterAdvancementTab(namespace, true);
+    }
+
+    /**
+     * Unregisters an advancement tab, optionally omitting client remove packets. The latter is useful
+     * while rebuilding a tab after a datapack/resource reload: the client may already have discarded
+     * the old virtual tree, so sending remove packets would produce "don't know what that is" warnings.
+     */
+    public void unregisterAdvancementTab(@NotNull String namespace, boolean removeClient) {
         checkInitialisation();
         Preconditions.checkNotNull(namespace, "Namespace is null.");
         AdvancementTab tab = tabs.remove(namespace);
         if (tab != null)
-            tab.dispose();
+            tab.dispose(removeClient);
     }
 
     /**
@@ -537,10 +570,6 @@ public final class AdvancementMain {
         if (!isLoaded() || !isEnabled()) {
             throw new IllegalStateException("UltimateAdvancementAPI is not enabled.");
         }
-    }
-
-    private static boolean isMcReload(@NotNull String command) {
-        return command.startsWith("/minecraft:reload") || command.startsWith("minecraft:reload");
     }
 
     /**

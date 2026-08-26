@@ -13,6 +13,7 @@ import com.fren_gor.ultimateAdvancementAPI.nms.wrappers.advancement.AdvancementW
 import com.fren_gor.ultimateAdvancementAPI.util.AdvancementKey;
 import com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils;
 import com.fren_gor.ultimateAdvancementAPI.util.AfterHandle;
+import com.fren_gor.ultimateAdvancementAPI.util.FoliaCompatibility;
 import com.fren_gor.ultimateAdvancementAPI.visibilities.IVisibility;
 import com.google.common.base.Preconditions;
 import net.md_5.bungee.api.ChatColor;
@@ -45,7 +46,6 @@ import java.util.function.Consumer;
 
 import static com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils.progressionFromPlayer;
 import static com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils.progressionFromUUID;
-import static com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils.runSync;
 import static com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils.uuidFromPlayer;
 import static com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils.validateIncrement;
 import static com.fren_gor.ultimateAdvancementAPI.util.AdvancementUtils.validateProgressionValueStrict;
@@ -519,7 +519,8 @@ public abstract class Advancement {
      * @param player The player the toast will be shown to.
      */
     public void displayToastToPlayer(@NotNull Player player) {
-        AdvancementUtils.displayToast(player, display.getIcon(), display.getTitle(), display.getFrame());
+        AdvancementUtils.displayToast(advancementTab.getOwningPlugin(), player,
+                display.getIcon(), display.getTitle(), display.getFrame());
     }
 
     /**
@@ -592,14 +593,16 @@ public abstract class Advancement {
             BaseComponent[] msg = getAnnounceMessage(player);
             if (msg != null)
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    p.spigot().sendMessage(msg);
+                    Player recipient = p;
+                    FoliaCompatibility.runForPlayer(advancementTab.getOwningPlugin(), recipient,
+                            () -> recipient.spigot().sendMessage(msg));
                 }
         }
 
         // Show Toast
         if (display.doesShowToast()) {
-            // TODO Find a better solution
-            runSync(advancementTab.getOwningPlugin(), 2, () -> AdvancementUtils.displayToastDuringUpdate(player, this));
+            FoliaCompatibility.runForPlayerLater(advancementTab.getOwningPlugin(), player,
+                    () -> AdvancementUtils.displayToastDuringUpdate(player, this), 2L);
         }
 
         if (giveRewards)
