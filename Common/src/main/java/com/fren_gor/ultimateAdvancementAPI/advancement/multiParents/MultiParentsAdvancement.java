@@ -199,7 +199,6 @@ public class MultiParentsAdvancement extends AbstractMultiParentsAdvancement {
         return false;
     }
 
-    // Not currently used
     /*public boolean isAnyParentStarted(@NotNull TeamProgression pro) {
         Preconditions.checkNotNull(pro, "TeamProgression cannot be null.");
 

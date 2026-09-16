@@ -37,7 +37,7 @@ public class AdvancementDisplay {
     /**
      * The fancy description used by Advancement#getAnnounceMessage(Player).
      */
-    protected final BaseComponent[] chatDescription = new BaseComponent[1]; // Make sure only 1 element is used, otherwise the chat bugs
+    protected final BaseComponent[] chatDescription = new BaseComponent[1]; // Multiple elements break chat rendering.
 
     /**
      * The title of the advancement.
@@ -227,8 +227,6 @@ public class AdvancementDisplay {
         this.rawTitle = titleTrimmed.substring(0, toSub).trim();
 
         this.chatTitle[0] = new TextComponent(defaultColor + rawTitle);
-        // Old code, bugged for unknown reasons (found out that BaseComponent[] must have length 1 or it bugs in HoverEvents)
-        // this.chatDescription = AdvancementUtils.fromStringList(title, this.description);
 
         if (this.description.isEmpty()) {
             this.compactDescription = "";

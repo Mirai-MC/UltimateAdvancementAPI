@@ -282,9 +282,6 @@ public final class AdvancementMain {
             throw new InvalidVersionException("Incorrect minecraft version. Couldn't disable UltimateAdvancementAPI.");
         }
         if (!LOADED.compareAndSet(true, false)) {
-            // Old code
-            // throw new IllegalStateException("UltimateAdvancementAPI is not loaded.");
-
             return; // Don't do anything if API is already disabled
         }
 
