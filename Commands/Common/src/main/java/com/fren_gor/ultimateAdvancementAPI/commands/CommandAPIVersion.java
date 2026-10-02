@@ -72,14 +72,17 @@ public enum CommandAPIVersion {
                     "v26_1_R2"
             )
     ),
-    v12_0_0("12.0.0",
+    // 12.1.0 removes the obsolete FuelValues reference from NMS_26_Common.
+    // Keep the adapter suffix: the 12.0.0 adapter is API-compatible with 12.1.0.
+    v12_0_0("12.1.0",
             "commandapi-spigot-shade",
             "commandapi-paper-shade",
-            "WYJSdZPnABtIb7Jn27wwE58LTjhXh757I+ZIbGPp1q0=",
-            "rQLFFwTKL1NbLKw93E4y83Qsg3FMUDIYHLD1BN/NZ20=",
+            "t2V5fPOHkJEvkrr2zx3NDIm5VEy62AEhpT5eZGfZ9TI=",
+            "hJqFwY4A98ZoIFI/YtKxC4gnV8bX+GmmB9brSl6XsYI=",
             "12_0_0",
             List.of(
-                    "v26_2_R1"
+                    "v26_2_R1",
+                    "v26_3_R1"
             )
     );
 

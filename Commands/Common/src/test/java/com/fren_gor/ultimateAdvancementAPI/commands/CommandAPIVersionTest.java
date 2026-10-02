@@ -17,6 +17,15 @@ import static org.junit.Assert.*;
 
 public class CommandAPIVersionTest {
 
+    @Test
+    public void testMinecraft26_3UsesCompatibleCommandAPI() {
+        CommandAPIVersion version = CommandAPIVersion.getVersionToLoad("v26_3_R1");
+        assertNotNull(version);
+        assertEquals("12.1.0", version.getVersion());
+        assertEquals("12_0_0", version.getClasspathSuffix());
+        assertSame(version, CommandAPIVersion.getVersionToLoad("v26_2_R1"));
+    }
+
     @Rule
     public TemporaryFolder tmpFolder = TemporaryFolder.builder().assureDeletion().build();
 

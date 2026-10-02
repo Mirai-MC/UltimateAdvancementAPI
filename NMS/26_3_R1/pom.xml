@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.frengor</groupId>
+        <artifactId>ultimateadvancementapi-nms-parent</artifactId>
+        <version>2.8.0</version>
+    </parent>
+
+    <artifactId>ultimateadvancementapi-nms-26_3_R1</artifactId>
+    <name>UltimateAdvancementAPI-NMS-26_3_R1</name>
+    <url>${parent.url}</url>
+    <packaging>jar</packaging>
+
+    <properties>
+        <mc-version>26.3-R0.1-SNAPSHOT</mc-version>
+    </properties>
+
+    <dependencies>
+        <!-- Spigot API pinned to 26.1.2: the org.bukkit surface used here is unchanged in 26.3,
+             and the 26.1.2 spigot-api artifact carries the bungeecord-chat/guava transitives.
+             The Mojang-mapped 26.3 server has no separate BuildTools spigot-api artifact. -->
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>26.1.2-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Spigot: Mojang-mapped 26.3 server (net.minecraft + unversioned CraftBukkit) -->
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot</artifactId>
+            <version>${mc-version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- NMS Common Module -->
+        <dependency>
+            <groupId>com.frengor</groupId>
+            <artifactId>ultimateadvancementapi-nms-common</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Paper API, compile-time only: Paper's 26.3 server is the only published Mojang-mapped
+             26.3 artifact, and its CraftBukkit classes carry Paper API types in their signatures
+             (org.bukkit.craftbukkit.entity.CraftEntity.getData), which javac has to resolve while
+             reading them. Nothing here is shaded, and the wrappers only call Bukkit, CraftBukkit
+             and net.minecraft members. -->
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>26.3.build.42-alpha</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <repositories>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+    </repositories>
+
+    <build>
+        <resources>
+            <resource>
+                <filtering>false</filtering>
+                <directory>../..</directory>
+                <includes>
+                    <include>LICENSE</include>
+                    <include>LGPL</include>
+                    <include>NOTICE</include>
+                </includes>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
