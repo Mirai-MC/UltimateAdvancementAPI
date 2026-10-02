@@ -126,8 +126,12 @@ public final class BukkitAdvancementCommand extends Command {
                     return;
                 }
                 List<Player> targets = resolveTargets(sender, args, 2);
+                if (!targetsOrUsage(sender, args, 2, "Usage: /" + label + " grant all <player> [giveRewards]", targets)) {
+                    return;
+                }
                 boolean giveRewards = args.length > 3 && Boolean.parseBoolean(args[3]);
-                commandsCommon.grantAll(sender, targets, giveRewards);
+                runSafely(sender, () -> commandsCommon.grantAll(sender, targets, giveRewards),
+                        "Could not grant every advancement");
             }
             case "tab" -> {
                 if (!check(sender, PERMISSION_GRANT_TAB)) {
@@ -139,8 +143,12 @@ public final class BukkitAdvancementCommand extends Command {
                     return;
                 }
                 List<Player> targets = resolveTargets(sender, args, 3);
+                if (!targetsOrUsage(sender, args, 3, "Usage: /" + label + " grant tab <advancementTab> <player> [giveRewards]", targets)) {
+                    return;
+                }
                 boolean giveRewards = args.length > 4 && Boolean.parseBoolean(args[4]);
-                commandsCommon.grantTab(sender, tab, targets, giveRewards);
+                runSafely(sender, () -> commandsCommon.grantTab(sender, tab, targets, giveRewards),
+                        "Could not grant every advancement of tab " + tab);
             }
             case "one" -> {
                 if (!check(sender, PERMISSION_GRANT_ONE)) {
@@ -152,8 +160,12 @@ public final class BukkitAdvancementCommand extends Command {
                     return;
                 }
                 List<Player> targets = resolveTargets(sender, args, 3);
+                if (!targetsOrUsage(sender, args, 3, "Usage: /" + label + " grant one <advancement> <player> [giveRewards]", targets)) {
+                    return;
+                }
                 boolean giveRewards = args.length > 4 && Boolean.parseBoolean(args[4]);
-                commandsCommon.grantOne(sender, adv, targets, giveRewards);
+                runSafely(sender, () -> commandsCommon.grantOne(sender, adv, targets, giveRewards),
+                        "Could not grant advancement " + adv);
             }
             default -> sender.sendMessage(ChatColor.RED + "Usage: /" + label + " grant <all|tab|one> ...");
         }
@@ -175,8 +187,12 @@ public final class BukkitAdvancementCommand extends Command {
                     return;
                 }
                 List<Player> targets = resolveTargets(sender, args, 2);
+                if (!targetsOrUsage(sender, args, 2, "Usage: /" + label + " revoke all <player> [hideTabs]", targets)) {
+                    return;
+                }
                 boolean hideTabs = args.length > 3 && Boolean.parseBoolean(args[3]);
-                commandsCommon.revokeAll(sender, targets, hideTabs);
+                runSafely(sender, () -> commandsCommon.revokeAll(sender, targets, hideTabs),
+                        "Could not revoke every advancement");
             }
             case "tab" -> {
                 if (!check(sender, PERMISSION_REVOKE_TAB)) {
@@ -188,8 +204,12 @@ public final class BukkitAdvancementCommand extends Command {
                     return;
                 }
                 List<Player> targets = resolveTargets(sender, args, 3);
+                if (!targetsOrUsage(sender, args, 3, "Usage: /" + label + " revoke tab <advancementTab> <player> [hideTab]", targets)) {
+                    return;
+                }
                 boolean hideTab = args.length > 4 && Boolean.parseBoolean(args[4]);
-                commandsCommon.revokeTab(sender, tab, targets, hideTab);
+                runSafely(sender, () -> commandsCommon.revokeTab(sender, tab, targets, hideTab),
+                        "Could not revoke every advancement of tab " + tab);
             }
             case "one" -> {
                 if (!check(sender, PERMISSION_REVOKE_ONE)) {
@@ -201,7 +221,11 @@ public final class BukkitAdvancementCommand extends Command {
                     return;
                 }
                 List<Player> targets = resolveTargets(sender, args, 3);
-                commandsCommon.revokeOne(sender, adv, targets);
+                if (!targetsOrUsage(sender, args, 3, "Usage: /" + label + " revoke one <advancement> <player>", targets)) {
+                    return;
+                }
+                runSafely(sender, () -> commandsCommon.revokeOne(sender, adv, targets),
+                        "Could not revoke advancement " + adv);
             }
             default -> sender.sendMessage(ChatColor.RED + "Usage: /" + label + " revoke <all|tab|one> ...");
         }
@@ -228,6 +252,9 @@ public final class BukkitAdvancementCommand extends Command {
                     return;
                 }
                 List<Player> targets = resolveTargets(sender, args, 3);
+                if (!targetsOrUsage(sender, args, 3, "Usage: /" + label + " progression get <advancement> <player>", targets)) {
+                    return;
+                }
                 for (Player p : targets) {
                     runSafely(sender, () -> commandsCommon.getProgression(sender, adv, p),
                             "Could not get progression of advancement " + adv);
@@ -249,6 +276,9 @@ public final class BukkitAdvancementCommand extends Command {
                     return;
                 }
                 List<Player> targets = resolveTargets(sender, args, 4);
+                if (!targetsOrUsage(sender, args, 4, "Usage: /" + label + " progression set <advancement> <progression> <player> [giveRewards]", targets)) {
+                    return;
+                }
                 boolean giveRewards = args.length > 5 && Boolean.parseBoolean(args[5]);
                 final int prog = progression;
                 for (Player p : targets) {
@@ -280,6 +310,17 @@ public final class BukkitAdvancementCommand extends Command {
             return false;
         }
         return true;
+    }
+
+    // A target is required everywhere except the "player runs it on themselves" case. Without one the
+    // CommandAPI-based command prints its usage line, so the fallback prints the same instead of letting
+    // CommandsCommon raise "No player has been provided." past the command boundary.
+    private boolean targetsOrUsage(CommandSender sender, String[] args, int index, String usage, List<Player> targets) {
+        if (!targets.isEmpty()) {
+            return true;
+        }
+        sender.sendMessage(ChatColor.RED + (args.length <= index ? usage : "No player has been provided."));
+        return false;
     }
 
     // Resolves the optional target-player argument: an "@"-selector or a named online player. When no argument
@@ -364,17 +405,42 @@ public final class BukkitAdvancementCommand extends Command {
             };
         }
         String kind = args[1].toLowerCase(Locale.ROOT);
-        boolean advancementSlot = (sub.equals("grant") || sub.equals("revoke"))
-                && (kind.equals("tab") || kind.equals("one"));
-        boolean progressionAdvancement = sub.equals("progression")
-                && (kind.equals("get") || kind.equals("set"));
-        if (args.length == 3 && (advancementSlot || progressionAdvancement)) {
-            if (kind.equals("tab")) {
-                return filter(args[2], main.getAdvancementTabNamespaces().toArray(new String[0]));
-            }
-            return filter(args[2], main.filterNamespaces(null).toArray(new String[0]));
+        boolean tabSlot = (sub.equals("grant") || sub.equals("revoke")) && kind.equals("tab");
+        boolean advancementSlot = ((sub.equals("grant") || sub.equals("revoke")) && (kind.equals("tab") || kind.equals("one")))
+                || (sub.equals("progression") && (kind.equals("get") || kind.equals("set")));
+        if (args.length == 3 && advancementSlot) {
+            return tabSlot
+                    ? filter(args[2], main.getAdvancementTabNamespaces().toArray(new String[0]))
+                    : filter(args[2], main.filterNamespaces(null).toArray(new String[0]));
+        }
+        int playerSlot = playerSlot(sub, kind);
+        if (playerSlot > 0 && args.length == playerSlot + 1) {
+            String[] names = Bukkit.getOnlinePlayers().stream().map(Player::getName).toArray(String[]::new);
+            return filter(args[playerSlot], names);
+        }
+        if (playerSlot > 0 && args.length == playerSlot + 2 && hasBooleanArgument(sub, kind)) {
+            return filter(args[playerSlot + 1], "true", "false");
         }
         return Collections.emptyList();
+    }
+
+    /** Index of the optional target-player argument, or -1 when the subcommand takes none. */
+    private static int playerSlot(String sub, String kind) {
+        return switch (sub) {
+            case "grant" -> kind.equals("all") ? 2 : kind.equals("tab") || kind.equals("one") ? 3 : -1;
+            case "revoke" -> kind.equals("all") ? 2 : kind.equals("tab") || kind.equals("one") ? 3 : -1;
+            case "progression" -> kind.equals("get") ? 3 : kind.equals("set") ? 4 : -1;
+            default -> -1;
+        };
+    }
+
+    private static boolean hasBooleanArgument(String sub, String kind) {
+        return switch (sub) {
+            case "grant" -> kind.equals("all") || kind.equals("tab") || kind.equals("one");
+            case "revoke" -> kind.equals("all") || kind.equals("tab");
+            case "progression" -> kind.equals("set");
+            default -> false;
+        };
     }
 
     private List<String> filter(String prefix, String... options) {

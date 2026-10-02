@@ -57,8 +57,11 @@ public class AdvancementPlugin extends JavaPlugin {
             }
         }
         if (commandAPIManager == null) {
-            // CommandAPI is unavailable (e.g. it could not be downloaded on an offline server) so register
-            // the native Bukkit fallback command to keep the /uaapi command tree working.
+            // CommandAPI is unavailable (its NMS layer does not know this server version, or it could not be
+            // downloaded on an offline server), so register the native Bukkit fallback command to keep the
+            // /uaapi command tree working.
+            Bukkit.getConsoleSender().sendMessage(ChatColor.YELLOW + "[UltimateAdvancementAPI] CommandAPI is unavailable on "
+                    + Bukkit.getBukkitVersion() + ", using the built-in /uaapi command implementation instead.");
             BukkitAdvancementCommand.register(main);
         }
     }
