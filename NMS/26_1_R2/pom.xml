@@ -43,7 +43,26 @@
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- Paper API, compile-time only: Paper's 26.1.2 server is what the spigot artifact carries, and
+             its CraftBukkit classes carry Paper API types in their signatures
+             (org.bukkit.craftbukkit.entity.CraftEntity.getData), which javac has to resolve while
+             reading them. Nothing here is shaded, and the wrappers only call Bukkit, CraftBukkit
+             and net.minecraft members. -->
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>26.1.2.build.74-stable</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+    </repositories>
 
     <build>
         <resources>
