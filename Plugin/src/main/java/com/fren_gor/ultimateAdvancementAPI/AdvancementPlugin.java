@@ -1,6 +1,7 @@
 package com.fren_gor.ultimateAdvancementAPI;
 
 import com.fren_gor.ultimateAdvancementAPI.commands.BukkitAdvancementCommand;
+import com.fren_gor.ultimateAdvancementAPI.commands.CommandAPICompatibility;
 import com.fren_gor.ultimateAdvancementAPI.commands.CommandAPIManager;
 import com.fren_gor.ultimateAdvancementAPI.commands.CommandAPIManager.ILoadable;
 import com.fren_gor.ultimateAdvancementAPI.exceptions.InvalidVersionException;
@@ -13,6 +14,8 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.logging.Level;
 
 public class AdvancementPlugin extends JavaPlugin {
 
@@ -47,21 +50,32 @@ public class AdvancementPlugin extends JavaPlugin {
         }
 
         commandAPIManager = CommandAPIManager.loadManager(main.getLibbyManager());
+        boolean commandAPISupported = true;
         if (commandAPIManager != null) { // In case commands couldn't be loaded
             try {
                 commandAPIManager.onLoad(main, this);
             } catch (Throwable t) {
-                Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "[UltimateAdvancementAPI] An exception occurred while loading commands for UltimateAdvancementAPI, continuing without them:");
-                t.printStackTrace();
+                if (CommandAPICompatibility.isUnsupportedServerBuild(t)) {
+                    // CommandAPI doesn't know this server build: the fallback command registered below takes over,
+                    // so the stack trace is kept out of the console and written to the debug log only.
+                    commandAPISupported = false;
+                    getLogger().log(Level.FINE, "[UltimateAdvancementAPI] CommandAPI doesn't support this server build.", t);
+                } else {
+                    Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "[UltimateAdvancementAPI] An exception occurred while loading commands for UltimateAdvancementAPI, continuing without them:");
+                    t.printStackTrace();
+                }
                 commandAPIManager = null;
             }
         }
         if (commandAPIManager == null) {
-            // CommandAPI is unavailable (its NMS layer does not know this server version, or it could not be
+            // CommandAPI is unavailable (its NMS layer does not know this server build, or it could not be
             // downloaded on an offline server), so register the native Bukkit fallback command to keep the
             // /uaapi command tree working.
-            Bukkit.getConsoleSender().sendMessage(ChatColor.YELLOW + "[UltimateAdvancementAPI] CommandAPI is unavailable on "
-                    + Bukkit.getBukkitVersion() + ", using the built-in /uaapi command implementation instead.");
+            String reason = commandAPISupported
+                    ? "CommandAPI is unavailable on " + Bukkit.getBukkitVersion()
+                    : "CommandAPI doesn't support the server build " + Bukkit.getBukkitVersion();
+            Bukkit.getConsoleSender().sendMessage(ChatColor.YELLOW + "[UltimateAdvancementAPI] " + reason
+                    + ", using the built-in /uaapi command implementation instead.");
             BukkitAdvancementCommand.register(main);
         }
     }
